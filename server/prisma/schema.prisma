@@ -1,13 +1,355 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
+}
+
+//enums
+
+enum Role {
+  CUSTOMER
+  SELLER
+  ADMIN
+}
+
+enum SellerStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum OrderStatus {
+  PLACED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+//USER MODEL
+
+model User {
+  id String @id @default(uuid())
+
+  name     String
+  email    String @unique
+  password String
+
+  phone  String?
+  avatar String?
+
+  role Role @default(CUSTOMER)
+
+  isVerified Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sellerProfile SellerProfile?
+
+  addresses Address[]
+
+  cart Cart?
+
+  orders Order[]
+
+  reviews Review[]
+
+  @@index([email])
+  @@map("users")
+}
+
+//SellerProfile
+model SellerProfile {
+  id String @id @default(uuid())
+
+  businessName String
+
+  businessEmail String
+
+  phone String
+
+  gstNumber String?
+
+  address String?
+
+  status SellerStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  userId String @unique
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  products Product[]
+
+  @@map("seller_profiles")
+}
+
+//category model
+model Category {
+  id Int @id @default(autoincrement())
+
+  name String @unique
+
+  slug String @unique
+
+  description String?
+
+  image String?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+
+  @@index([name])
+  @@map("categories")
+}
+
+//product model
+
+model Product {
+  id String @id @default(uuid())
+
+  title String
+
+  slug String @unique
+
+  description String @db.LongText
+
+  brand String?
+
+  sku String @unique
+
+  price Decimal @db.Decimal(10, 2)
+
+  discountPrice Decimal? @db.Decimal(10, 2)
+
+  stock Int
+
+  thumbnail String?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  sellerId String
+
+  seller SellerProfile @relation(fields: [sellerId], references: [id])
+
+  categoryId Int
+
+  category Category @relation(fields: [categoryId], references: [id])
+
+  images ProductImage[]
+
+  orderItems OrderItem[]
+
+  reviews Review[]
+
+  cartItems CartItem[]
+
+  aiGeneratedDescription Boolean @default(false)
+
+  @@index([sellerId])
+  @@index([categoryId])
+  @@index([title])
+  @@index([price])
+  @@map("products")
+}
+
+//product image model
+
+model ProductImage {
+  id Int @id @default(autoincrement())
+
+  imageUrl String
+
+  productId String
+
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_images")
+}
+
+//address model
+model Address {
+  id String @id @default(uuid())
+
+  fullName String
+
+  phone String
+
+  addressLine String
+
+  city String
+
+  state String
+
+  country String
+
+  pincode String
+
+  isDefault Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  orders Order[]
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+//cart model
+model Cart {
+  id String @id @default(uuid())
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  userId String @unique
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  cartItems CartItem[]
+
+  @@map("carts")
+}
+
+//cartitem MODEL
+model CartItem {
+  id Int @id @default(autoincrement())
+
+  quantity Int
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  cartId String
+
+  productId String
+
+  cart Cart @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([cartId, productId])
+  @@index([cartId])
+  @@index([productId])
+  @@map("cart_items")
+}
+
+// order model
+model Order {
+  id String @id @default(uuid())
+
+  orderNumber String @unique
+
+  subtotal Decimal @db.Decimal(10, 2)
+
+  tax Decimal @db.Decimal(10, 2)
+
+  shippingCharge Decimal @db.Decimal(10, 2)
+
+  discount Decimal @default(0) @db.Decimal(10, 2)
+
+  totalAmount Decimal @db.Decimal(10, 2)
+
+  paymentStatus PaymentStatus @default(PENDING)
+
+  orderStatus OrderStatus @default(PLACED)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  userId String
+
+  addressId String
+
+  user User @relation(fields: [userId], references: [id])
+
+  address Address @relation(fields: [addressId], references: [id])
+
+  orderItems OrderItem[]
+
+  @@index([userId])
+  @@index([orderStatus])
+  @@map("orders")
+}
+
+model OrderItem {
+  id Int @id @default(autoincrement())
+
+  quantity Int
+
+  price Decimal @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  orderId String
+
+  productId String
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, productId])
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+// review model
+model Review {
+  id String @id @default(uuid())
+
+  rating Int
+
+  comment String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  userId String
+
+  productId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([productId])
+  @@map("reviews")
 }
